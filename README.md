@@ -194,6 +194,17 @@ const pay = await runAicard(["--quiet", "shop", "pay", "--continue-url", cart.da
 
 See [docs/recipes/integrate-in-agent.md](docs/recipes/integrate-in-agent.md) for the full orchestration — including live progress streaming via `--progress-file` + `shop steps`, and the outcome/error-recovery tables.
 
+### Path C — Merchant API (server-to-server REST)
+
+Running a merchant system or an agent platform with **your own users**? Skip the CLI entirely and integrate the signed REST API: your server searches products, creates orders, and pays **on behalf of each user**, with funds drawn from the user's own AEON wallet — no card data ever touches your side.
+
+- **Channels**: Shopify (card payment) · Amazon (card payment, US) · Travala hotel booking (wallet payment)
+- **Model**: `appId` + `secret` credentials, per-request signature, `POST + JSON` only
+- **Money safety built in**: idempotent pay by your `outTradeNo`, automatic refund on definitive failure, per-user spending limits — no client-side funds protection needed
+- **Order lifecycle**: create (locks the quote) → pay → poll / webhook to terminal state, with 3DS/OTP relay for manual verification
+
+Start here: **[Merchant API integration guide](docs/merchant-api/README.md)** — quick-start call sequence + full endpoint reference (shopping, address, account & assets).
+
 Detailed references:
 
 - [docs/output-schema.md](docs/output-schema.md) — full envelope schema per command, incl. all `shop.*` payloads and `shop pay` outcome semantics
