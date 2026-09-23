@@ -20,11 +20,13 @@
 | channelOrderId | Yes | string | Returned in the Create Order response |
 | channel | Yes | string | Channel |
 | payMethod | Yes | string | `CARD` card payment (SHOPIFY / AMAZON) / `WALLET` wallet payment (TRAVALA only) |
-| token | Yes for WALLET | string | Wallet asset to debit, taken from "Asset Balance"; its `usdValue` must be enough to cover the total price. Do not pass for CARD |
+| token | No | string | Required only for `payMethod=WALLET` (TRAVALA): symbol of the wallet asset to debit (e.g. `USDT`), taken from "Asset Balance"; its `usdValue` must be enough to cover the booking total — missing returns `91017`, insufficient value returns `91007` (both synchronously at acceptance: no charge, no order created). Do not pass for `CARD` (SHOPIFY / AMAZON) |
 | outTradeNo | Yes | string | Merchant external order number (the payment order number in the merchant's own system; must be unique within the same merchant). Idempotency key |
 | webhookUrl | No | string | Order webhook URL (must start with `https://` and be reachable from the public internet). The server proactively notifies this URL when the order reaches a terminal state; see "Order Webhook" for the specification. If not passed, no notification is sent |
 
-**Parameter Examples**
+**Parameter Examples** (complete examples per channel)
+
+SHOPIFY (card payment, with webhook URL):
 
 ```json
 { "appId": "TEST000001", "userId": "user@example.com", "sign": "<sign>",
@@ -33,10 +35,22 @@
   "webhookUrl": "https://merchant.example.com/aeon/order-notify" }
 ```
 
+AMAZON (card payment):
+
 ```json
 { "appId": "TEST000001", "userId": "user@example.com", "sign": "<sign>",
   "channelOrderId": "amz_cb88902a23b24ffd9cb68101faa87c19", "channel": "AMAZON", "payMethod": "CARD",
   "outTradeNo": "M20260915170002" }
+```
+
+TRAVALA (wallet payment, `token` required):
+
+```json
+{ "appId": "TEST000001", "userId": "user@example.com", "sign": "<sign>",
+  "channelOrderId": "c58f2db4a7e94b0f9d3126aa84c1c77e", "channel": "TRAVALA", "payMethod": "WALLET",
+  "token": "USDT",
+  "outTradeNo": "M20260915170003",
+  "webhookUrl": "https://merchant.example.com/aeon/order-notify" }
 ```
 
 **Response Parameters**
@@ -47,10 +61,24 @@
 | channelOrderId | string | Channel order ID echoed back |
 | status | string | Status after acceptance (usually `PROCESSING`) |
 
-**Response Example**
+**Response Examples** (identical structure across channels; only the order-number shapes differ)
+
+SHOPIFY:
 
 ```json
-{ "orderNo": "AIS17889...", "channelOrderId": "hWNGc...", "status": "PROCESSING" }
+{ "orderNo": "AIS1788944123001101", "channelOrderId": "hWNGc...", "status": "PROCESSING" }
+```
+
+AMAZON:
+
+```json
+{ "orderNo": "AIS1788944156002102", "channelOrderId": "amz_cb88902a23b24ffd9cb68101faa87c19", "status": "PROCESSING" }
+```
+
+TRAVALA:
+
+```json
+{ "orderNo": "AIS1788944189003103", "channelOrderId": "c58f2db4a7e94b0f9d3126aa84c1c77e", "status": "PROCESSING" }
 ```
 
 ##### Payment Rules
