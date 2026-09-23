@@ -1,4 +1,4 @@
-# Order Detail
+# Payment Detail
 
 **Brief Description**
 

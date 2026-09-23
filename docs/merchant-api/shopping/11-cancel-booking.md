@@ -77,6 +77,6 @@ Second stage (confirm cancellation):
 
 **Notes**
 
-- After a successful cancellation, the `receipt` in "Order Detail" gains two new fields, `cancelledAt` (cancellation time) and `refundNote`; the order `status` remains `COMPLETED` unchanged (no funds move on the platform side; the refund is handled by Travala on its side).
+- After a successful cancellation, the `receipt` in "Payment Detail" gains two new fields, `cancelledAt` (cancellation time) and `refundNote`; the order `status` remains `COMPLETED` unchanged (no funds move on the platform side; the refund is handled by Travala on its side).
 - This endpoint is in the funds rate-limit tier (5 req/min); verification code sending relies on this limit to prevent email bombing.
 - Before submitting the cancellation, the user must be made aware of the refund destination (`refundNote`) and explicitly confirm — cancellation is irreversible.

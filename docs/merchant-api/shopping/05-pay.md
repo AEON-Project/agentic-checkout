@@ -22,7 +22,7 @@
 | payMethod | Yes | string | `CARD` card payment (SHOPIFY / AMAZON) / `WALLET` wallet payment (TRAVALA only) |
 | token | No | string | Required only for `payMethod=WALLET` (TRAVALA): symbol of the wallet asset to debit (e.g. `USDT`), taken from "Asset Balance"; its `usdValue` must be enough to cover the booking total — missing returns `91017`, insufficient value returns `91007` (both synchronously at acceptance: no charge, no order created). Do not pass for `CARD` (SHOPIFY / AMAZON) |
 | outTradeNo | Yes | string | Merchant external order number (the payment order number in the merchant's own system; must be unique within the same merchant). Idempotency key |
-| webhookUrl | No | string | Order webhook URL (must start with `https://` and be reachable from the public internet). The server proactively notifies this URL when the order reaches a terminal state; see "Order Webhook" for the specification. If not passed, no notification is sent |
+| webhookUrl | No | string | Payment webhook URL (must start with `https://` and be reachable from the public internet). The server proactively notifies this URL when the order reaches a terminal state; see "Payment Webhook" for the specification. If not passed, no notification is sent |
 
 **Parameter Examples** (complete examples per channel)
 

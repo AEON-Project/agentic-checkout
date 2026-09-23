@@ -37,7 +37,7 @@
 | pageSize | number | Items per page |
 | total | number | Total count |
 
-Per-item fields of `list` (same as "Order Detail", without `pendingAction`):
+Per-item fields of `list` (same as "Payment Detail", without `pendingAction`):
 
 | Parameter | Type | Description |
 |---|---|---|

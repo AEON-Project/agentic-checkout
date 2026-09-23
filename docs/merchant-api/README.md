@@ -39,7 +39,7 @@ Channels: **SHOPIFY** (physical goods, card payment) · **AMAZON** (physical goo
                          (verify the signature + dedupe by outTradeNo; retries with decay for ~12 h)
 ```
 
-Polling and webhooks are complementary: the webhook frees you from long polling, but delivery may be delayed or lost — **the authoritative status is always [Order Detail](shopping/06-order-detail.md)**; re-query once after receiving a webhook before booking the result.
+Polling and webhooks are complementary: the webhook frees you from long polling, but delivery may be delayed or lost — **the authoritative status is always [Payment Detail](shopping/06-payment-detail.md)**; re-query once after receiving a webhook before booking the result.
 
 ## Reference
 
@@ -53,10 +53,10 @@ Polling and webhooks are complementary: the webhook frees you from long polling,
 | [Product Detail](shopping/03-product-detail.md) | `POST /items/detail` |
 | [Create Order](shopping/04-create-order.md) | `POST /orders/create` — locks the quote, no funds move |
 | [Pay](shopping/05-pay.md) | `POST /orders/pay` — idempotent by `outTradeNo` |
-| [Order Detail](shopping/06-order-detail.md) | `POST /orders/detail` — the authoritative status |
+| [Payment Detail](shopping/06-payment-detail.md) | `POST /orders/detail` — the authoritative status |
 | [Manual Verification](shopping/07-manual-verification.md) | `POST /orders/actions` — 3DS / OTP relay |
 | [Order List](shopping/08-order-list.md) | `POST /orders/list` |
-| [Order Webhook](shopping/09-order-webhook.md) | terminal-state callback, signature verification, retry policy |
+| [Payment Webhook](shopping/09-payment-webhook.md) | terminal-state callback, signature verification, retry policy |
 | [Error Codes](shopping/10-error-codes.md) | full `code` reference |
 | [Cancel Booking](shopping/11-cancel-booking.md) | `POST /orders/booking/cancel` — TRAVALA only |
 

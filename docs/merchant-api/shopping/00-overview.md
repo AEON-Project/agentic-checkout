@@ -56,11 +56,11 @@ The call order for a complete purchase:
                 ├─ FAIL                → handle per failCode, display reason verbatim
                 └─ PROCESSING          → keep polling
 ⑧ Webhook        When the order reaches a final state (COMPLETED / FAIL / TIMEOUT) the server POSTs to webhookUrl
-                (verify the signature + process idempotently by outTradeNo; on failure retries with a decaying schedule for about 12 hours, see "Order Webhook")
+                (verify the signature + process idempotently by outTradeNo; on failure retries with a decaying schedule for about 12 hours, see "Payment Webhook")
 ```
 
 Polling and webhooks complement each other: webhooks free the merchant from long polling and deliver the final state promptly, but notifications may be delayed or lost.
-**The authoritative status is always "Order Detail"**; after receiving a webhook it is recommended to query once more before posting to your books.
+**The authoritative status is always "Payment Detail"**; after receiving a webhook it is recommended to query once more before posting to your books.
 
 ##### Order Number Glossary
 

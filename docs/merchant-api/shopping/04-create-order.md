@@ -58,12 +58,12 @@
 | channel | string | Channel echoed back |
 | channelOrderId | string | Channel order ID; pass it to "Pay" |
 | quote.title | string | Product/booking title |
-| quote.pricingType | string | `ESTIMATE` (SHOPIFY: shipping and tax are confirmed at payment time) or `FINAL` (TRAVALA: the actual charged amount; AMAZON: the authorized maximum — the actual charge is ≤ this amount, with `paidUsd` in Order Detail as the source of truth) |
+| quote.pricingType | string | `ESTIMATE` (SHOPIFY: shipping and tax are confirmed at payment time) or `FINAL` (TRAVALA: the actual charged amount; AMAZON: the authorized maximum — the actual charge is ≤ this amount, with `paidUsd` in Payment Detail as the source of truth) |
 | quote.currency | string | Pricing currency (ISO 4217); all amount fields below are in this currency |
-| quote.subtotal | string | Item subtotal (returned if known at this moment; null if not applicable/unknown; see the pricing matrix in "Order Detail" for its composition) |
-| quote.shipping | string | Shipping (returned if known at this moment; null if not applicable/unknown; see the pricing matrix in "Order Detail" for its composition) |
-| quote.tax | string | Tax (returned if known at this moment; null if not applicable/unknown; see the pricing matrix in "Order Detail" for its composition) |
-| quote.fee | string | Fee (returned if known at this moment; null if not applicable/unknown; see the pricing matrix in "Order Detail" for its composition) |
+| quote.subtotal | string | Item subtotal (returned if known at this moment; null if not applicable/unknown; see the pricing matrix in "Payment Detail" for its composition) |
+| quote.shipping | string | Shipping (returned if known at this moment; null if not applicable/unknown; see the pricing matrix in "Payment Detail" for its composition) |
+| quote.tax | string | Tax (returned if known at this moment; null if not applicable/unknown; see the pricing matrix in "Payment Detail" for its composition) |
+| quote.fee | string | Fee (returned if known at this moment; null if not applicable/unknown; see the pricing matrix in "Payment Detail" for its composition) |
 | quote.total | string | Current total payable: `FINAL` = actual charged amount; `ESTIMATE` = locked quote amount (excluding subsequent shipping and tax) |
 | quote.fxRate | string | Exchange rate of `currency` against USD (`"1"` when `currency=USD`) |
 | quote.payTotalUsd | string | Payable amount converted to USD; use this when restating the amount to the user |

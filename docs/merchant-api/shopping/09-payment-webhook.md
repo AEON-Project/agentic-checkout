@@ -1,4 +1,4 @@
-# Order Webhook
+# Payment Webhook
 
 **Brief Description**
 
@@ -33,13 +33,13 @@
 | channelOrderId | string | Channel order ID |
 | channel | string | `SHOPIFY` / `AMAZON` / `TRAVALA` |
 | title | string | Product/booking title |
-| status | string | Terminal state: `COMPLETED` / `FAIL` / `TIMEOUT` (same semantics as the status table in "Order Detail") |
+| status | string | Terminal state: `COMPLETED` / `FAIL` / `TIMEOUT` (same semantics as the status table in "Payment Detail") |
 | failCode | string | Failure code, non-null only when `FAIL`; values are the same as "Error Codes" |
 | reason | string | End-user-facing failure reason in English, non-null only on failure |
 | payNo | string | Payment order number (charge idempotency key, reconciliation evidence); null for failed orders aborted before charging |
 | paidUsd | string | Actual charged amount (USD). Null if not charged (including `TIMEOUT` and failures before charging) — amount verification is based on this field (participates in the signature) |
-| pricing | object | Real cost breakdown and actual charge, same structure as `pricing` in "Order Detail"; null for failed orders whose pricing was never confirmed. Does not participate in the signature |
-| receipt | object | Success receipt, same structure as `receipt` in "Order Detail", non-null only when `COMPLETED`. Does not participate in the signature |
+| pricing | object | Real cost breakdown and actual charge, same structure as `pricing` in "Payment Detail"; null for failed orders whose pricing was never confirmed. Does not participate in the signature |
+| receipt | object | Success receipt, same structure as `receipt` in "Payment Detail", non-null only when `COMPLETED`. Does not participate in the signature |
 | sign | string | SHA-512 signature (computed over the flat fields above), does not participate in the signature |
 
 **Webhook Example**
@@ -81,5 +81,5 @@
 
 - After the first notification fails, resends follow a decaying frequency: every 2 minutes within 10 minutes after the order reaches a terminal state, every 10 minutes within 1 hour,
   every 1 hour within 12 hours; stops after 12 hours (about 20 attempts in total)
-- During retries, the merchant may call "Order Detail" at any time to get the authoritative status without waiting for notifications
+- During retries, the merchant may call "Payment Detail" at any time to get the authoritative status without waiting for notifications
 - An invalid `webhookUrl` (not https / unreachable / certificate error) does not affect the payment flow; only the notification fails

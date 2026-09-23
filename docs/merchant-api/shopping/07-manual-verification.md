@@ -5,7 +5,7 @@
 - Some checkouts require a one-time verification code: when the order detail stays `PROCESSING` and `pendingAction` becomes non-null, ask the user for the verification code and submit it via this endpoint
 - Valid for about 3 minutes
 
-`pendingAction` structure (from the "Order Detail" response):
+`pendingAction` structure (from the "Payment Detail" response):
 
 ```json
 "pendingAction": { "type": "3DS_OTP",
