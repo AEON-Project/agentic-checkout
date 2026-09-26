@@ -18,6 +18,7 @@
 | userId | Yes | string | User identifier (email) |
 | sign | Yes | string | Signature; see "Signature" for the generation rules |
 | token | Yes | string | Asset symbol |
+| address | Yes | string | Receiving address (user's external wallet address) |
 | network | Yes | string | Network code, taken from "Recharge & Redeem Network List" (`direction=REDEEM`) |
 | amount | No | string | Estimated redeem amount (in token); when provided, the fee is calculated based on this amount |
 
@@ -25,7 +26,7 @@
 
 ```json
 { "appId": "TEST000001", "userId": "user@example.com", "sign": "<sign>",
-  "token": "USDT", "network": "TRC20", "amount": "25.5" }
+  "token": "USDT","address": "TYx3p8...", "network": "TRC20", "amount": "25.5" }
 ```
 
 **Response Parameters**
