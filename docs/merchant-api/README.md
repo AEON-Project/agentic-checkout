@@ -12,7 +12,7 @@ Channels: **SHOPIFY** (physical goods, card payment) · **AMAZON** (physical goo
 |---|---|
 | Base URL | `https://aipay-api.aeon.xyz/agentapi/v1` |
 | Transport | All endpoints are **POST + JSON** (UTF-8), timestamps in ISO-8601 UTC |
-| Auth | `appId` / `userId` / `sign` at the top level of every request body — per-request MD5 signature, see [Signature](shopping/01-signature.md) |
+| Auth | `appId` / `userId` / `timestamp` / `nonce` / `sign` at the top level of every request body — per-request V3 signature (SHA-512, bound to METHOD/PATH, ±5-min window + nonce anti-replay), see [Signature](shopping/01-signature.md) |
 | Result | HTTP status is always 200; success/failure is decided solely by the envelope `code` (`"0"` = success), see [Error Codes](shopping/10-error-codes.md) |
 | Credentials | `appId` + `secret` issued offline or via the merchant console. `secret` must never leave your server |
 
@@ -48,7 +48,7 @@ Polling and webhooks are complementary: the webhook frees you from long polling,
 | Doc | Endpoint(s) |
 |---|---|
 | [Integration Overview](shopping/00-overview.md) | envelope, call sequence, order-number glossary, rate limits, integration rules |
-| [Signature](shopping/01-signature.md) | signing algorithm + Java sample |
+| [Signature](shopping/01-signature.md) | V3 signing algorithm + Java/Python samples |
 | [Product Search](shopping/02-product-search.md) | `POST /search` |
 | [Product Detail](shopping/03-product-detail.md) | `POST /items/detail` |
 | [Create Order](shopping/04-create-order.md) | `POST /orders/create` — locks the quote, no funds move |

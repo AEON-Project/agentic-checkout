@@ -1,47 +1,70 @@
-# Signature
+# Signature (V3)
+
+> As of 2026-10 the signing protocol has been upgraded to **V3** as a hard cutover: the legacy scheme (plain `k=v&…&key=secret` concatenation with no timestamp/nonce and no request-path binding) is **no longer accepted**. What changed in V3: the string to sign is bound to the HTTP method and request path (prevents cross-endpoint replay), every request must carry `timestamp` (±5-minute window) and `nonce` (server-side replay protection — unique within the window), and keys/values are RFC 3986 percent-encoded (eliminates ambiguity when values contain `&` / `=`).
 
 *   Currently `appId` and `secret` are obtained offline or via the merchant management platform;
-*   secret: the secret used to digest and sign the input parameters of API requests. The merchant keeps it and must strictly guarantee the security of this key; it must not be leaked;
-*   Building the string to sign: put all parameters subject to signature verification into an array and sort them in ascending dictionary (ASCII) order of the parameter names — **note that only the parameter keys are sorted; values do not participate in sorting**;
-*   All non-empty field values participate in the signature (excluding sign); if a field is an object, the string must be concatenated recursively (the sub-object's fields are concatenated into a `k=v&k=v` substring in the same dictionary-order rule, and that substring participates in the outer concatenation as the field's value);
-*   Common parameters `appId` / `userId` / `sign` go at the top level of the request body JSON (at the same level as business parameters).
+*   secret: the secret used to digest and sign the input parameters of API requests. The merchant keeps it and must strictly guarantee the security of this key; it must not be leaked.
 
-##### Common Parameters (carried by every request)
+##### Common Parameters (carried by every request, at the top level of the request body JSON, same level as business parameters; in the query string for GET requests)
 
 | Parameter | Required | Type | Description |
 |---|---|---|---|
 | appId | Yes | string | Merchant identifier, assigned when onboarding to the platform |
 | userId | Yes | string | User identifier (email); funds belong to this user — this user's wallet / AI Card bears the charge, and the order belongs to this user; for a new user, call "Initialize Account" first |
-| sign | Yes | string | SHA-512 signature (uppercase) generated per the rules in this document; does not participate in signature verification |
+| timestamp | Yes | string | Signing timestamp, **standard epoch milliseconds** (UTC, no timezone offset); the server enforces a ±5-minute window, out-of-window requests get `91024` |
+| nonce | Yes | string | Random anti-replay string, ≥8 characters (≥16 random hex recommended); must not repeat within the window for the same appId, duplicates get `91024` |
+| sign | Yes | string | SHA-512 signature (uppercase hex) generated per the rules in this document; does not itself participate in signing |
 
-##### Signature String Example:
+##### V3 String-to-Sign Structure
 
-*   Given the parameters (using create order `POST /orders/create`, SHOPIFY, with the secret assumed to be `9999`):
+```
+METHOD + "\n" + PATH + "\n" + parameter section + "\n" + "key=" + secret
+```
+
+*   **METHOD**: the HTTP method in uppercase (`GET` / `POST`…);
+*   **PATH**: the full request path, without host and query string, e.g. `/agentapi/v1/orders/create`;
+*   **parameter section**: all parameters with non-empty values (query string and request-body top level merged, including timestamp/nonce, excluding `sign`), sorted in ascending dictionary (ASCII) order of parameter names, each pair rendered as `encode(k)=encode(v)` and joined with `&`;
+*   **encode**: RFC 3986 percent-encoding — encode UTF-8 bytes one by one; unreserved characters (`A-Z a-z 0-9 - . _ ~`) stay as-is, everything else becomes `%XX` (uppercase hex). **Do not use your language's form-encoding** (a space must be `%20`, never `+`);
+*   **object fields**: first build the sub-object's own substring with the same rule (dictionary order + `encode(k)=encode(v)` joined with `&`, **no `key=` appended**), then **encode that whole substring once more and use it as the field's value** in the outer concatenation (i.e. the substring is double-encoded — see the TRAVALA example below);
+*   empty values (null / empty string), `sign` and `key` fields are removed (also inside sub-objects);
+*   digest: SHA-512 over the string to sign, hex result converted to **uppercase**.
+
+##### Signature String Example
+
+*   Given the parameters (create order `POST /agentapi/v1/orders/create`, SHOPIFY, secret assumed to be `9999`):
 
 		{
 		  "appId": "TEST000001",
 		  "userId": "user@example.com",
 		  "channel": "SHOPIFY",
-		  "variantId": "gid://shopify/ProductVariant/4409...",
+		  "variantId": "gid://shopify/ProductVariant/4409",
 		  "shopDomain": "acmegear.com",
 		  "country": "US",
+		  "timestamp": "1700000000000",
+		  "nonce": "f3a9c2d14b7e86a1",
 		  "sign": "..."
 		}
 
-*   Concatenate the string in preparation for signing: convert to the form parameterName=parameterValue, join with the & symbol, and finally append key(secret). Note: (if a field is an object, the string must be concatenated recursively). The result is as follows:
+*   The string to sign (note the RFC 3986 encoding: `@` → `%40`, `://` → `%3A%2F%2F`; line breaks are `\n`):
 
-		appId=TEST000001&channel=SHOPIFY&country=US&shopDomain=acmegear.com&userId=user@example.com&variantId=gid://shopify/ProductVariant/4409...&key=9999
+		POST
+		/agentapi/v1/orders/create
+		appId=TEST000001&channel=SHOPIFY&country=US&nonce=f3a9c2d14b7e86a1&shopDomain=acmegear.com&timestamp=1700000000000&userId=user%40example.com&variantId=gid%3A%2F%2Fshopify%2FProductVariant%2F4409
+		key=9999
 
-*   Then digest the string to sign with the SHA-512 algorithm and convert the hex result to uppercase to produce the final signature. The signature result is as follows:
+*   SHA-512 digest converted to uppercase gives the final signature:
 
-		1AF02D42CA64D20DF9973417F8834D9E876CA07C26406F6F8D41ABF3C3987198DB90B14A50002EEAFC1663CE325B7DF407D208A6EDA5277CD2AAEAEAC062EA22
+		20BFC0CC4F9407AF7B9691DEB19CF636174A5DF08798309B0C2B68DB125F4AAAA0967BF36C6302AA5151D33F0409940C642CFE02D7A84FEE1248965CCBEC8CB5
 
-*   Endpoints with no business parameters work the same way, e.g. `POST /wallet/assets` (the string to sign contains only the two common parameters):
+*   Endpoints with no business parameters work the same way, e.g. `POST /agentapi/v1/wallet/assets` (the parameter section contains only the four common parameters):
 
-		appId=TEST000001&userId=user@example.com&key=9999
-		→ sign = 540AAABF9343EFA3C04A3590889CFF2B7B4BA802169E5DCB53ECCF983C84FD6B55A84CD07627F198ACAC036170B4A91AA72E8594C42CAD47003E9A66A20589B4
+		POST
+		/agentapi/v1/wallet/assets
+		appId=TEST000001&nonce=8c41be0f29d7a356&timestamp=1700000000000&userId=user%40example.com
+		key=9999
+		→ sign = 9C0D1CE50D2448CA908AC978E60F01B630A8B3258591B4FF8A16C03E7A54D73E56B6C114E320097BD775B5B1FAD641A4088F36FACBD115C7843764171A142FF6
 
-##### Signature String Example with an Object Parameter (TRAVALA create order, `guest`):
+##### Signature String Example with an Object Parameter (TRAVALA create order, `guest`)
 
 *   Given the request parameters (secret still assumed to be `9999`):
 
@@ -50,162 +73,151 @@
 		  "userId": "user@example.com",
 		  "channel": "TRAVALA",
 		  "packageId": "PKG_abc123",
-		  "sessionId": "sess_9f2c...",
+		  "sessionId": "sess_9f2c",
 		  "guest": { "firstName": "Waters", "lastName": "Alexander", "phone": "+8529319534025" },
+		  "timestamp": "1700000000000",
+		  "nonce": "1d5e8a37c6f4b290",
 		  "sign": "..."
 		}
 
-*   Step 1: concatenate the sub-object `guest` **internally** in dictionary order into a `k=v&k=v` substring (**no trailing `&`, and no `key=` appended to the substring**):
+*   Step 1: build the sub-object `guest`'s **internal** substring in dictionary order with encoded pairs (**no trailing `&`, no `key=` appended**; the `+` in the phone number is encoded as `%2B`):
 
-		firstName=Waters&lastName=Alexander&phone=+8529319534025
+		firstName=Waters&lastName=Alexander&phone=%2B8529319534025
 
-*   Step 2: embed that substring **verbatim as the value of the `guest` field** in the outer concatenation (in the outer sort, `guest` participates only by its own field name; the sub-object's fields are never mixed into the outer sort), then append `key=secret` at the very end:
+*   Step 2: **encode that whole substring once more and use it as the value of the `guest` field** in the outer concatenation (`=` → `%3D`, `&` → `%26`, and the already-encoded `%2B` becomes `%252B`), producing the string to sign:
 
-		appId=TEST000001&channel=TRAVALA&guest=firstName=Waters&lastName=Alexander&phone=+8529319534025&packageId=PKG_abc123&sessionId=sess_9f2c...&userId=user@example.com&key=9999
-		→ sign = AEB89527AB2B186214B393336A42B7F25AAFE65D4A29CB7A260EA5CCF7F92C159D56EBCD0CC194D63E80775F3FE7F5E160F551B3D4DD3BE33FBE7CBDFED7BE6B
+		POST
+		/agentapi/v1/orders/create
+		appId=TEST000001&channel=TRAVALA&guest=firstName%3DWaters%26lastName%3DAlexander%26phone%3D%252B8529319534025&nonce=1d5e8a37c6f4b290&packageId=PKG_abc123&sessionId=sess_9f2c&timestamp=1700000000000&userId=user%40example.com
+		key=9999
+		→ sign = B5F53ED8609C7C8D7EEB488B19CC7ADEC91C1E342359FDAA121CA16BCCCD1F08DAEAED710F3BA139044C70E361C386093BDDE2FD3E241CD5DC37A9B22EF1D044
 
 *   Common mistakes (each of them results in `91024`):
-    1. Concatenating the sub-object as JSON text (`guest={"firstName":...}`) — wrong; it must be flattened into a `k=v&k=v` substring;
-    2. Flattening the sub-object's fields into the outer sort (e.g. `firstName=...&guest.lastName=...`) — wrong; sorting happens strictly within each level;
-    3. Adding a trailing `&` to the substring or appending `key=` inside it — `key=secret` is appended exactly once, at the very end of the outermost string;
-    4. URL-encoding or escaping values — wrong; all values are concatenated verbatim (including characters such as `+`, `@`, `&`, `=` — see the `+` in the phone number above);
-    5. Not removing empty/null fields inside the sub-object — the removal rules (empty values, `sign`, `key`) apply inside sub-objects as well.
+    1. Missing timestamp/nonce, or timestamp not in epoch milliseconds (e.g. seconds, or local time with a timezone offset);
+    2. String to sign missing the METHOD/PATH prefix, or PATH carrying the host / query string;
+    3. Using form-encoding instead of RFC 3986 (space became `+`, or `~` got encoded);
+    4. Concatenating the sub-object as JSON text (`guest={"firstName":...}`), or not double-encoding the whole substring;
+    5. Flattening the sub-object's fields into the outer sort — sorting happens strictly within each level;
+    6. Not removing empty/null fields inside the sub-object — the removal rules (empty values, `sign`, `key`) apply inside sub-objects as well;
+    7. Reusing a nonce within 10 minutes (fixed value, second-rounded values, etc.) — every request needs a fresh random value.
 
-##### Signing Utility Class:
+##### Java Reference Implementation
 
-		import java.io.UnsupportedEncodingException;
+		import java.nio.charset.StandardCharsets;
 		import java.security.MessageDigest;
-		import java.security.NoSuchAlgorithmException;
-		import java.util.Iterator;
 		import java.util.Map;
-		import java.util.Set;
 		import java.util.SortedMap;
 		import java.util.TreeMap;
 
-		public class SHA512Utils {
+		public class SignV3 {
 
-		    public static final String ENCODE = "UTF-8";
-
-		    /**
-		     * Sign the message with SHA-512
-		     *
-		     * @param signParams signature parameters
-		     * @param key        secret key
-		     * @return
-		     */
-		    public static String SHAEncrypt(SortedMap<Object, Object> signParams, String key) {
-		        String signStr = stringConcatenation(signParams, key);
-		        return encrypt(signStr, ENCODE).toUpperCase();
+		    /** V3 signature: uppercase hex */
+		    public static String sign(String method, String path, SortedMap<String, Object> params, String secret) throws Exception {
+		        String raw = method.toUpperCase() + "\n" + path + "\n" + canonical(params) + "\nkey=" + secret;
+		        MessageDigest md = MessageDigest.getInstance("SHA-512");
+		        byte[] digest = md.digest(raw.trim().getBytes(StandardCharsets.UTF_8));
+		        StringBuilder out = new StringBuilder();
+		        for (byte b : digest) {
+		            out.append(String.format("%02X", b));
+		        }
+		        return out.toString();
 		    }
 
-		    public static String stringConcatenation(SortedMap<Object, Object> signParams, String key) {
-		        StringBuffer sb = new StringBuffer();
-		        Set es = signParams.entrySet();
-		        Iterator it = es.iterator();
-		        while (it.hasNext()) {
-		            Map.Entry entry = (Map.Entry) it.next();
-		            String k = (String) entry.getKey();
-		            String v = null;
-		            if (entry.getValue() instanceof Map) {
-		                SortedMap<Object, Object> sortedMap = new TreeMap();
-		                sortedMap.putAll((Map<?, ?>) entry.getValue());
-		                v = stringConcatenation(sortedMap, null);
+		    /** parameter section: dictionary order + rfc3986-encoded k=v joined with &; nested Maps recurse, the substring is re-encoded as the value */
+		    static String canonical(SortedMap<String, Object> params) {
+		        StringBuilder sb = new StringBuilder();
+		        for (Map.Entry<String, Object> e : params.entrySet()) {
+		            String k = e.getKey();
+		            Object raw = e.getValue();
+		            String v;
+		            if (raw instanceof Map) {
+		                SortedMap<String, Object> sorted = new TreeMap<>();
+		                ((Map<?, ?>) raw).forEach((nk, nv) -> sorted.put(String.valueOf(nk), nv));
+		                v = canonical(sorted);
 		            } else {
-		                if (entry.getValue() != null) {
-		                    v = entry.getValue().toString();
-		                }
+		                v = raw == null ? null : raw.toString();
 		            }
-		            if (null != v && !"".equals(v) && !v.equals("null") && !"sign".equals(k) && !"key".equals(k)) {
-		                sb.append(k + "=" + v + "&");
+		            if (v == null || v.isEmpty() || "null".equals(v) || "sign".equals(k) || "key".equals(k)) {
+		                continue;
 		            }
-		        }
-		        if (key != null && !key.isEmpty()) {
-		            sb.append("key=" + key);
-		        } else {
-		            return sb.substring(0, sb.length() - 1);
+		            if (sb.length() > 0) {
+		                sb.append('&');
+		            }
+		            sb.append(encode(k)).append('=').append(encode(v));
 		        }
 		        return sb.toString();
 		    }
 
-		    public static String encrypt(String aValue, String encoding) {
-		        aValue = aValue.trim();
-		        byte value[];
-		        try {
-		            value = aValue.getBytes(encoding);
-		        } catch (UnsupportedEncodingException e) {
-		            value = aValue.getBytes();
+		    /** RFC 3986: UTF-8 bytes one by one; unreserved characters stay, everything else %XX uppercase */
+		    static String encode(String s) {
+		        byte[] bytes = s.getBytes(StandardCharsets.UTF_8);
+		        StringBuilder out = new StringBuilder(bytes.length * 3);
+		        for (byte b : bytes) {
+		            int c = b & 0xff;
+		            if ((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9')
+		                    || c == '-' || c == '.' || c == '_' || c == '~') {
+		                out.append((char) c);
+		            } else {
+		                out.append('%').append(String.format("%02X", c));
+		            }
 		        }
-		        MessageDigest md = null;
-		        try {
-		            md = MessageDigest.getInstance("SHA-512");
-		        } catch (NoSuchAlgorithmException e) {
-		            e.printStackTrace();
-		            return null;
-		        }
-		        return toHex(md.digest(value));
+		        return out.toString();
 		    }
 
-		    public static String toHex(byte input[]) {
-		        if (input == null)
-		            return null;
-		        StringBuffer output = new StringBuffer(input.length * 2);
-		        for (int i = 0; i < input.length; i++) {
-		            int current = input[i] & 0xff;
-		            if (current < 16)
-		                output.append("0");
-		            output.append(Integer.toString(current, 16));
-		        }
-		        return output.toString();
-		    }
-
-		    /**
-		     * Verify the signature
-		     *
-		     * @param signParams signature parameters
-		     * @param key        secret key
-		     * @return true = verification succeeded
-		     */
-		    public static boolean verifySHA(TreeMap<String, Object> signParams, String key) {
-		        String verifySign = String.valueOf(signParams.get("sign"));
-		        String sign = SHAEncrypt(signParams, key);
-		        if (sign.equalsIgnoreCase(verifySign)) {
-		            return true;
-		        }
-		        return false;
+		    public static void main(String[] args) throws Exception {
+		        SortedMap<String, Object> params = new TreeMap<>();
+		        params.put("appId", "TEST000001");
+		        params.put("userId", "user@example.com");
+		        params.put("timestamp", String.valueOf(System.currentTimeMillis()));
+		        params.put("nonce", java.util.UUID.randomUUID().toString().replace("-", ""));
+		        System.out.println(sign("POST", "/agentapi/v1/wallet/assets", params, "9999"));
 		    }
 		}
 
-##### Java Signature Generation Example:
+##### Python Reference Implementation
 
-		import java.util.TreeMap;
-		import com.alibaba.fastjson.JSONObject;
+		import hashlib
+		import secrets
+		import time
+		from urllib.parse import quote
 
-		public class SignTest {
-		    public static void main(String[] args) {
-		        String jsonData = "{\n" +
-		                "    \"appId\": \"TEST000001\",\n" +
-		                "    \"userId\": \"user@example.com\",\n" +
-		                "    \"channel\": \"SHOPIFY\",\n" +
-		                "    \"country\": \"US\"\n" +
-		                "}";
-		        // Sign the data
-		        TreeMap resultMap = JSONObject.parseObject(jsonData, TreeMap.class);
-		        String result = SHA512Utils.SHAEncrypt(resultMap, "9999");
-		        System.out.println(result);
+		def rfc3986(s: str) -> str:
+		    return quote(s, safe="-._~")
 
-		        // Verify the signature on the data, true = verification succeeded
-		        resultMap.put("sign", "DB1107649D205EE9A542EEF5DF27F69F6C2A2604D183A834ABCDD7B7A457738AD5E059B86C188B5A00973454CF90C207CBA4EDDBC91ABB66968A0ACBDE270CB0");
-		        System.out.println(SHA512Utils.verifySHA(resultMap, "9999"));
-		    }
+		def canonical(params: dict) -> str:
+		    parts = []
+		    for k in sorted(params.keys()):
+		        v = params[k]
+		        if isinstance(v, dict):
+		            v = canonical(v)
+		        elif isinstance(v, bool):
+		            v = "true" if v else "false"   # Java Boolean.toString() semantics
+		        elif v is not None:
+		            v = str(v)
+		        if v is None or v == "" or v == "null" or k in ("sign", "key"):
+		            continue
+		        parts.append(f"{rfc3986(k)}={rfc3986(v)}")
+		    return "&".join(parts)
+
+		def sign_v3(method: str, path: str, params: dict, secret: str) -> str:
+		    raw = f"{method.upper()}\n{path}\n{canonical(params)}\nkey={secret}"
+		    return hashlib.sha512(raw.strip().encode("utf-8")).hexdigest().upper()
+
+		body = {
+		    "appId": "TEST000001",
+		    "userId": "user@example.com",
+		    "timestamp": str(int(time.time() * 1000)),
+		    "nonce": secrets.token_hex(16),
 		}
+		body["sign"] = sign_v3("POST", "/agentapi/v1/wallet/assets", body, "9999")
 
 ##### Authentication Errors
 
 | Scenario | code | Action |
 |---|---|---|
-| Missing common parameters | `91001` | Supply appId / userId / sign |
+| Missing common parameters | `91001` | Supply appId / userId / timestamp / nonce / sign |
 | `appId` invalid or not enabled | `91003` | Verify onboarding info or contact operations |
-| Signature verification failed | `91024` | Check the string to sign (dictionary order / empty-value removal / object recursion / uppercase) and the secret |
-| Transient server error | `91002` | Retry the original request once |
+| Signature verification failed / timestamp out of window / nonce reused | `91024` | Check the string to sign (METHOD/PATH prefix, dictionary order, RFC 3986 encoding, empty-value removal, object recursion, uppercase), your server clock (NTP), and nonce randomness |
+| Transient server error | `91002` | Retry the original request once with a fresh nonce (the old nonce is already registered and cannot be reused) |
 
-The signature contains no timestamp — always call over HTTPS, and if the secret is leaked, contact operations immediately to rotate it.
+Always call over HTTPS; if the secret is leaked, contact operations immediately to rotate it.

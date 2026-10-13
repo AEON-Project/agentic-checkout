@@ -4,7 +4,7 @@ Enables a merchant system to search for products and complete purchases on behal
 
 - Base URL: `https://<host>/agentapi/v1`
 - All endpoints uniformly use **POST + JSON** (UTF-8); all timestamps are ISO-8601 UTC
-- Common parameters `appId` / `userId` / `sign` go at the top level of the request body JSON; every request is signed (see "Signature")
+- Common parameters `appId` / `userId` / `timestamp` / `nonce` / `sign` go at the top level of the request body JSON; every request carries a V3 signature (bound to METHOD/PATH, ±5-min timestamp window, nonce anti-replay — see "Signature")
 - The HTTP status code is always 200; success or failure is always determined by the envelope `code` (see "Error Codes")
 - Channels: `SHOPIFY` / `AMAZON` / `TRAVALA`; catalog and order request/response structures differ by channel
 
