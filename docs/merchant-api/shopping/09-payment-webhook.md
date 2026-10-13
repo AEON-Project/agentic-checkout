@@ -8,16 +8,17 @@
 - The same notification may be delivered multiple times (retries, network replays); the merchant must handle it idempotently: first check by `outTradeNo` (or
   `orderNo`) whether the business data has already been processed, and if so respond success directly; acquire a data lock for concurrency control before the
   status check and processing, to avoid re-entry
-- The merchant must verify the signature (recompute and compare with its own `secret` per the "Signature" rules), and verify that the `paidUsd` amount matches the merchant-side
+- The merchant must verify the signature (recompute and compare with its own `secret` per the webhook signing rule below), and verify that the `paidUsd` amount matches the merchant-side
   order amount, to prevent financial loss from "fake notifications"
 - The signature scope is the flat fields: the two object fields `pricing` / `receipt` do not participate in the signature; amount verification is based on the top-level
-  `paidUsd` (which participates in the signature); other fields whose value is null or `""` do not participate in the signature (same rules as "Signature")
+  `paidUsd` (which participates in the signature); other fields whose value is null or `""` do not participate in the signature; `sign` itself never participates
+- **Webhook signing rule (note: different from the V3 request signature — webhooks use flat concatenation)**: take the non-empty flat fields, sort by parameter name in ascending dictionary (ASCII) order, concatenate as `k1=v1&k2=v2&…&key=<secret>` (values are NOT percent-encoded; no METHOD/PATH/timestamp/nonce), SHA-512 digest, uppercase hex. Replay protection is carried by `notifyId` idempotent deduplication on the merchant side
 
 **Webhook Method**
 
 - POST `webhookUrl`, `Content-Type: application/json`, timeout 5 seconds
 - The request body is JSON; the common parameters `appId` / `userId` / `sign` are at the top level (alongside the business fields);
-  see "Signature" for the signature rules
+  signing rule: see "Webhook signing rule" above (flat concatenation — not the V3 request signature)
 
 **Webhook Parameters**
 

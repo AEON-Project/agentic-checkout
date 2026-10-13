@@ -4,7 +4,7 @@ The HTTP status code is always 200; errors are always determined by the envelope
 
 | code&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; | Meaning / client action |
 |:---------------------|:---|
-| 91001 | Missing common parameters (appId / userId / sign) → supply them and retry |
+| 91001 | Missing common parameters (appId / userId / timestamp / nonce / sign) → supply them and retry |
 | 91002 | Transient server error → retry the original request once |
 | 91003 | `appId` invalid or not enabled → verify onboarding info or contact operations |
 | 91004 | No saved address → confirm with the user, then call "Save Address" |
@@ -24,7 +24,7 @@ The HTTP status code is always 200; errors are always determined by the envelope
 | 91019 | Verification code wrong or expired (second stage of "Cancel Booking") → resend the code without `otp`, then retry with the latest code |
 | 91020 | Product currently not purchasable (sold out / delisted / card payment not supported / does not ship to the destination country / agent checkout not enabled) → switch product, variant, or merchant. As an order `failCode` it is a merchant-level permanent constraint (checkout empirically rejects cards / requires login / refuses the session); retrying the same merchant will fail identically |
 | 91021 | Channel upstream service temporarily unavailable → retry later. As an order `failCode` it includes "pre-payment card balance query failed" (card-issuing channel outage, not insufficient balance; no charge made): **do not top up the card**; simply retry later with a new `outTradeNo` |
-| 91024 | Signature verification failed → check the string to sign and the secret per "Signature" |
+| 91024 | Signature verification failed / timestamp out of ±5-min window / nonce reused → check the V3 string to sign (METHOD/PATH prefix, RFC 3986 encoding), server clock and nonce randomness per "Signature" |
 | 91025 | Merchant does not ship to the delivery address (empirically confirmed rejection at checkout; only appears as an order `failCode`) → do not retry the same merchant; switch merchants or change the delivery address |
 | 91026 | Order amount below the merchant's minimum order threshold (checkout empirically rejected this order; not a merchant-level constraint; only appears as an order `failCode`) → add quantity/items to reach the threshold and create the order again; retrying the same cart unchanged will definitely fail |
 | 91027 | Booking not cancellable (not a TRAVALA order / not `COMPLETED` / upstream refused per the cancellation policy, original text in `msg`) → do not retry as-is; see "Cancel Booking" |
